@@ -1,6 +1,6 @@
 # Estudo RabbitMQ com Spring Boot
 
-Projeto de estudos para aprender comunicação assíncrona utilizando RabbitMQ e Spring Boot. O sistema simula um cadastro de usuários onde, após o registro, um evento é publicado no RabbitMQ e consumido de forma assíncrona.
+Projeto de estudos para aprender comunicação assíncrona utilizando **RabbitMQ** e **Spring Boot**. O sistema simula um cadastro de usuários onde, após o registro, um evento é publicado no RabbitMQ e consumido de forma assíncrona.
 
 ---
 
@@ -8,6 +8,7 @@ Projeto de estudos para aprender comunicação assíncrona utilizando RabbitMQ e
 
 Demonstrar na prática os conceitos fundamentais de mensageria assíncrona:
 
+- **Comunicação assíncrona** — ação desacoplada entre producer e consumer
 - **Producer** — publica eventos no RabbitMQ após uma ação (cadastro de usuário)
 - **Consumer** — escuta a fila e processa o evento de forma desacoplada
 - **Exchange** — do tipo **Direct**, encaminha a mensagem para a fila correta com base na routing key
@@ -49,23 +50,30 @@ flowchart LR
 ## Estrutura do projeto
 
 ```
-com.clinly.estudorabbit
-├── EstudoRabbitApplication.java          # Classe principal Spring Boot
-├── controller/
-│   └── controller.java                   # Endpoint REST /auth/register
-├── entity/
-│   └── user.java                         # Entidade JPA (UUID, name, email, password)
-├── repository/
-│   └── entityRepository.java             # JPA Repository
-└── rabbit/
-    ├── config/
-    │   └── RabbitConfig.java             # Configuração da Exchange, Queue, Binding e JSON converter
-    ├── producer/
-    │   └── RabbitProducer.java           # Publica eventos no RabbitMQ
-    ├── consumer/
-    │   └── RabbitConsumer.java           # Consome eventos da fila
-    └── events/
-        └── UserCreatedEvent.java         # Record do evento (nome, email)
+src
+ ├── main
+ │    ├── java/com/clinly/estudorabbit
+ │    │    ├── EstudoRabbitApplication.java
+ │    │    ├── controller/
+ │    │    │    └── controller.java
+ │    │    ├── entity/
+ │    │    │    └── user.java
+ │    │    ├── repository/
+ │    │    │    └── entityRepository.java
+ │    │    └── rabbit/
+ │    │         ├── config/
+ │    │         │    └── RabbitConfig.java
+ │    │         ├── producer/
+ │    │         │    └── RabbitProducer.java
+ │    │         ├── consumer/
+ │    │         │    └── RabbitConsumer.java
+ │    │         └── events/
+ │    │              └── UserCreatedEvent.java
+ │    └── resources/
+ │         └── application.yaml
+ └── test
+      └── java/com/clinly/estudorabbit
+           └── EstudoRabbitApplicationTests.java
 ```
 
 ---
@@ -76,11 +84,11 @@ com.clinly.estudorabbit
 |---|---|
 | Java | 21 |
 | Spring Boot | 4.1.0 |
-| Spring AMQP | — |
-| Spring Data JPA | — |
-| H2 Database | — |
-| Jackson | — |
-| Maven | — |
+| Spring AMQP | via `spring-boot-starter-amqp` |
+| Spring Data JPA | via `spring-boot-starter-data-jpa` |
+| H2 Database | via `com.h2database:h2` |
+| Jackson | via `jackson-databind` |
+| Maven | via Wrapper |
 
 ---
 
@@ -89,31 +97,52 @@ com.clinly.estudorabbit
 ### Pré-requisitos
 
 - Java 21+
-- Maven
-- RabbitMQ rodando em `localhost:5672` (usuário/senha: `guest`)
+- RabbitMQ rodando em `localhost:5672` (usuário/senha padrão: `guest`)
 
 ### Passos
 
 ```bash
-# Clone o repositório
+# 1. Clone o repositório
 git clone https://github.com/lkznx7/estudoRabbit.git
 
-# Entre no diretório
+# 2. Entre no diretório
 cd EstudoRabbit
 
-# Execute a aplicação
+# 3. Suba o RabbitMQ (via Docker, por exemplo)
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+
+# 4. Acesse o RabbitMQ Management em http://localhost:15672 (guest/guest)
+
+# 5. Execute a aplicação
 ./mvnw spring-boot:run
 ```
 
-### Testar o endpoint
+> **Nota:** O banco H2 é configurado em memória, não é necessário configuração adicional.
 
-```bash
-curl -X POST http://localhost:8080/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name": "João", "email": "joao@email.com", "password": "123456"}'
+---
+
+## Exemplo de requisição
+
+```http
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "name": "João",
+  "email": "joao@email.com",
+  "password": "123456"
+}
 ```
 
-No console do consumer será exibido:
+---
+
+## Resultado esperado
+
+1. O usuário é salvo no banco H2 em memória.
+2. Um evento `UserCreatedEvent` é publicado na exchange `user.exchange`.
+3. O RabbitMQ recebe a mensagem e a direciona para a fila `user.created.queue`.
+4. O Consumer consome o evento da fila.
+5. A seguinte mensagem é exibida no console do consumer:
 
 ```
 --------------------------------
@@ -125,28 +154,45 @@ Email: joao@email.com
 
 ---
 
-## Configuração do RabbitMQ
+## Conceitos estudados
 
-Arquivo `application.yaml`:
+### RabbitMQ
+Sistema de mensageria open source que implementa o protocolo AMQP. Permite comunicação assíncrona entre componentes do sistema de forma desacoplada.
 
-```yaml
-spring:
-  application:
-    name: EstudoRabbit
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-```
+### Queue
+Fila de mensagens onde os eventos são armazenados até serem consumidos. Neste projeto, a fila `user.created.queue` é configurada como durável (`durable = true`).
 
-### Componentes declarados em `RabbitConfig`
+### Exchange
+Ponto central que recebe mensagens do producer e as roteia para as filas com base em regras de binding. Neste projeto é utilizada uma **Direct Exchange** (`user.exchange`).
 
-| Componente | Nome |
-|---|---|
-| Exchange | `user.exchange` (Direct) |
-| Queue | `user.created.queue` (durável) |
-| Routing Key | `user.created` |
-| Message Converter | `JacksonJsonMessageConverter` |
+### Routing Key
+Chave utilizada pelo exchange para determinar qual fila receberá a mensagem. Neste caso: `user.created`.
+
+### Producer
+Componente responsável por enviar mensagens para o RabbitMQ. Implementado em `RabbitProducer.java` usando `RabbitTemplate.convertAndSend()`.
+
+### Consumer
+Componente que escuta e processa mensagens de uma fila. Implementado em `RabbitConsumer.java` usando a anotação `@RabbitListener`.
+
+### Event-Driven Architecture (EDA)
+Padrão arquitetural onde o fluxo do programa é determinado por eventos. O producer não conhece o consumer — o desacoplamento é garantido pelo broker de mensagens.
 
 ---
+
+## Próximos passos
+
+- [ ] Implementar **Dead Letter Queue (DLQ)** para tratar mensagens com falha
+- [ ] Adicionar mecanismo de **Retry** com backoff exponencial
+- [ ] Criar **múltiplos Consumers** para processamento paralelo
+- [ ] Utilizar **Topic Exchange** para roteamento baseado em padrões
+- [ ] Utilizar **Fanout Exchange** para broadcast de mensagens
+- [ ] Implementar comunicação entre **microserviços**
+- [ ] Adicionar envio de **e-mail** como ação reativa ao evento
+- [ ] Implementar **auditoria** de eventos
+- [ ] Criar **testes automatizados** (unitários e de integração)
+
+---
+
+## Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
