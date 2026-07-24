@@ -179,20 +179,6 @@ Padrão arquitetural onde o fluxo do programa é determinado por eventos. O prod
 
 ---
 
-## Próximos passos
-
-- [ ] Implementar **Dead Letter Queue (DLQ)** para tratar mensagens com falha
-- [ ] Adicionar mecanismo de **Retry** com backoff exponencial
-- [ ] Criar **múltiplos Consumers** para processamento paralelo
-- [ ] Utilizar **Topic Exchange** para roteamento baseado em padrões
-- [ ] Utilizar **Fanout Exchange** para broadcast de mensagens
-- [ ] Implementar comunicação entre **microserviços**
-- [ ] Adicionar envio de **e-mail** como ação reativa ao evento
-- [ ] Implementar **auditoria** de eventos
-- [ ] Criar **testes automatizados** (unitários e de integração)
-
----
-
 ## Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
